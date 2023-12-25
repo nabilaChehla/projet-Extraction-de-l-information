@@ -57,7 +57,6 @@ def extract_medication_names(text):
     medication_names = [med for med in medication_names if len(med) > 3]
     # exlude some results :
     element_non_medicament = {
-        "Urée",
         "Diurèse",
         "Oxygénothérapie",
         "Posologie",
@@ -129,26 +128,27 @@ def main():
         content = file.read()
 
     # Extract potential medication names from the medical corpus
-    new_medications = extract_medication_names(content)
-    new_medications.sort()
+    Extracted_medications = extract_medication_names(content)
 
-    # Remove duplicates from new_medications
-    new_medications_unique = list(set(new_medications))
-    print(new_medications_unique)
-    print(len(new_medications_unique))
+    # Remove duplicates from     Extracted_medications
+    Extracted_medications_unique = list(set(Extracted_medications))
+    print(Extracted_medications_unique)
+    print(len(Extracted_medications_unique))
     # -MEDICAMENT ENRICHI : ----------------------------------------------------
     enrichier_medicaments = [
-        enrichier_med
-        for enrichier_med in new_medications
-        if enrichier_med not in existing_medications
+        enrichier_med.strip().lower()
+        for enrichier_med in Extracted_medications
+        if enrichier_med.strip().lower() not in existing_medications
     ]
+
     enrichier_medicaments.sort()
     enrichier_medicaments_unique = list(set(enrichier_medicaments))
     # -----------------------------------------------------------------------------
     # Append new medications to subst.dic
     with open(subst_dic_path, "a", encoding="utf-16le") as subst_dic_file:
-        for medication in new_medications_unique:
-            subst_dic_file.write(f"{medication.lower()},.N+subst\n")
+        for medication in Extracted_medications_unique:
+            if medication not in existing_medications:
+                subst_dic_file.write(f"{medication.lower()},.N+subst\n")
 
     # Sort subst.dic
     sort_file_by_line("subst.dic", "utf-16le")
@@ -158,7 +158,7 @@ def main():
         # Write BOM (Byte Order Mark) for UTF-16 LE
         subst_corpus_file.write("\ufeff")
 
-        for medication in new_medications:
+        for medication in Extracted_medications:
             subst_corpus_file.write(f"{medication.lower()},.N+subst\n")
 
     stats_file_2 = "infos2.txt"
@@ -170,7 +170,7 @@ def main():
         for letter in "abcdefghijklmnopqrstuvwxyz":
             count_corpus = 0
             count_total = 0
-            for med in new_medications_unique:
+            for med in Extracted_medications_unique:
                 if med.lower().startswith(letter):
                     file_2.write(f"{med.lower()}\n")
                     count_corpus += 1
@@ -187,7 +187,7 @@ def main():
             file_3.write(f"{letter}: {count_total}\n")
             file_3.write("\n\n\n------------------------------------\n")
 
-        file_2.write(f"\nTotal: {len(new_medications_unique)}\n")
+        file_2.write(f"\nTotal: {len(Extracted_medications_unique)}\n")
         file_3.write(f"\nTotal: {len(enrichier_medicaments_unique)}\n")
 
     print("Enrichment process completed.")
