@@ -3,8 +3,76 @@ import os
 import re
 
 
+def block_start(line):
+    line = line.strip().lower()
+    starters = {
+        "Traitement hospitalier",
+        "Prescription(s) médicale(s) de médicaments",
+        "Type de Stomie",
+        "Traitement de sortie",
+        "Le traitement de sortie comporte",
+        "TRAITEMENT MEDICAL DE SORTIE",
+        "TRAITEMENT À DOMICILE",
+        "Le traitement médical associe",
+        "Son traitement actuel comporte",
+        "Traitement:",
+    }
+    starters = [starter.lower() for starter in starters]
+
+    for starter in starters:
+        if starter in line:
+            return True
+
+    return False
+
+
+def extract_blocks():
+    with open("corpus-medical.txt", "r", encoding="utf-8") as file:
+        content = file.readlines()
+
+    in_block = False
+    blocks = []
+    current_block = []
+
+    for line in content:
+        if block_start(line):
+            in_block = True
+            current_block.append(line)
+        elif in_block:
+            current_block.append(line)
+            if (
+                line == "\n"
+                or "Aucun" in line
+                or "aucun" in line
+                or "Histoire de la maladie" in line
+                or "Examen clinique à l’entrée :" in line
+                or "Mode de vie" in line
+                or "Bilan paraclinique" in line
+                or "Examen clinique" in line
+                or "CENTRE HOSPITALIER UNIVERSITAIRE" in line
+                or "Pas de modification" in line
+                or "Le patient reviendra" in line
+                or "Restant à" in line
+            ):
+                in_block = False
+                blocks.append("".join(current_block))
+                current_block = []
+
+    for line in content:
+        if line.startswith("TAD :"):
+            in_block = True
+            current_block.append(line)
+        elif in_block:
+            current_block.append(line)
+            if "." in line:
+                in_block = False
+                blocks.append("".join(current_block))
+                current_block = []
+
+    return blocks
+
+
 def delete_existing_files():
-    # Delete info2, info3, and subst_corpus.dic if they exist
     for file_name in ["info2", "info3", "subst_corpus.dic"]:
         if os.path.exists(file_name):
             os.remove(file_name)
@@ -13,7 +81,6 @@ def delete_existing_files():
 def load_existing_medications(file_path):
     existing_medications = set()
 
-    # Load existing medications from subst.dic file
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-16le") as file:
             for line in file:
@@ -23,79 +90,76 @@ def load_existing_medications(file_path):
     return existing_medications
 
 
-import re
-
-
-def extract_medication_names(text):
+def extract_medication_names_corpus(text):
     medication_names = []
 
-    # Read the alphabet from a file
-    with open("Alphabet.txt", "r", encoding="utf-16-le") as alph_file:
-        alphFR = alph_file.read().strip()
+    pattern = r"traitement par ([A-Za-z{alph}]{4,})( et ([A-Za-z{alph}]{4,}))?"
 
-        # Exclude '\n' from the alphabet
-    alphFR = alphFR.replace("\n", "")
-
-    # Define a regular expression pattern to capture only drug names
-    pattern = rf"^\s*(\d*-)?\b([A-Za-z{alphFR}]+)(\s?LP)?\s*(\d+\s?\d*\.?\,?\s?\d*)\s(?:mg|ml|µg|mcg|g|cp|µg|l|mmol|UI)|(^\b[A-Za-z{alphFR}]+)(\s?LP)?\s*(\d+\s?\d*\.?\,?\s?\d*)\s(?:mg|ml|µg|mcg|g|cp|µg|l|mmol|UI)|^\b([A-Za-z{alphFR}]+)(\s?LP)?\s?(\d+\s?\d*\.?\,?\s?\d*)\s?:?\s?\d*\s?le?\s(?:matin|midi|soir)|^-?\s?(\b[A-Za-z{alphFR}]+)\s:?\s?(\d+\s?\d*\.?\,?\s?\d*)\s(?:mg|ml|µg|mcg|g|cp|µg|l|mmol|UI)|\s(\b[A-Za-z{alphFR}]+)\sà\s(\d+\s?\d*\.?\,?\s?\d*)\s?$"
-
-    # Find all matches in the text using re.DOTALL flag
     matches = re.finditer(pattern, text, re.DOTALL | re.MULTILINE)
 
-    # Iterate over matches and append specific groups to the list
     for match in matches:
-        group1 = match.group(2)  # Second capturing group of the first alternative
-        group2 = match.group(5)  # First capturing group of the second alternative
-        group3 = match.group(8)  # First capturing group of the third alternative
-        group4 = match.group(11)  # First capturing group of the fourth alternative
-        medication_names.extend([group1, group2, group3, group4])
+        group1 = match.group(1)
+        group2 = match.group(3)
+        medication_names.extend([group1, group2])
 
-    # Filter out None values (in case a group did not match in a particular iteration)
     medication_names = list(filter(None, medication_names))
 
-    # Remove meidcation names that are less than 4 characters long
-    medication_names = [med for med in medication_names if len(med) > 3]
     # exlude some results :
-    element_non_medicament = {
-        "Diurèse",
-        "Oxygénothérapie",
-        "Posologie",
-        "Oxygène",
-        "puis",
-        "TcPO",
-    }
+    # exlude some results :
+
+    medication_names = [med.lower() for med in medication_names]
 
     medication_names = [
-        med for med in medication_names if med not in element_non_medicament
+        med for med in medication_names if (med not in french_words and len(med) > 3)
     ]
 
-    return medication_names
+    return list(set(medication_names))
 
 
-# ----------------------------------------------------------------------------------
-def has_bom(content):
-    # Check for UTF-8 BOM
-    return content.startswith("\ufeff")
+def extract_medication_names_blocks(text):
+    medication_names = []
+
+    pattern = r"\b([A-Za-z{alph}]{5,})(?=\s*(jusqu’à|en seringue))|([A-Z]{5,})(?=(,|\.|\n))|([A-Za-z{alph}]{5,})(\s?LP)?\s*(\d+(,\d+)?)(?!.*\s*(ui\/h|cc)\b)(?:mg|g|ml)?|([A-Za-z{alph}]{5,})(\s?LP)?\s*(\d+(\s\d+)?)(?=.*\/j)|([A-Za-z{alph}]{4,})(?: ?\s*:\s*\d*\s*(fois|cp|midi|\/j))"
+
+    matches = re.finditer(pattern, text, re.DOTALL | re.MULTILINE)
+
+    for match in matches:
+        group1 = match.group(1)
+        group2 = match.group(3)
+        group3 = match.group(5)
+        group4 = match.group(10)
+        group5 = match.group(14)
+        medication_names.extend([group1, group2, group3, group4, group5])
+
+    medication_names = list(filter(None, medication_names))
+
+    # exlude some results :
+
+    medication_names = [med.lower() for med in medication_names]
+
+    medication_names = [
+        med for med in medication_names if (med not in french_words and len(med) > 3)
+    ]
+
+    return list(set(medication_names))
 
 
 def sort_file_by_line(filename, encoding="utf-8"):
     try:
-        # Read the content of the file
         with open(filename, "r", encoding=encoding) as file:
             content = file.read()
 
-        # Check for BOM and save it for later
-        bom = "\ufeff" if has_bom(content) else ""
+        if content.startswith("\ufeff"):
+            bom = "\ufeff"
+            content = content.replace("\ufeff", "")
+        else:
+            bom = ""
 
-        # Split the content into lines
         lines = content.splitlines()
 
-        # Sort the lines alphabetically
         sorted_lines = sorted(lines)
 
-        # Write the sorted lines back to the file
         with open(filename, "w", encoding=encoding) as file:
-            # Write BOM if necessary
             file.write(bom)
             file.write("\n".join(sorted_lines))
 
@@ -107,9 +171,71 @@ def sort_file_by_line(filename, encoding="utf-8"):
         print(f"An error occurred: {e}")
 
 
-# ----------------------------------------------------------------------------------
+def fill_info_files(
+    stats_file_2, stats_file_3, letters, new_medications_unique, enrichier_medicaments
+):
+    total2 = 0
+    total3 = 0
+
+    with open(stats_file_2, "w", encoding="utf-8") as file_2, open(
+        stats_file_3, "w", encoding="utf-8"
+    ) as file_3:
+        for letter in letters:
+            count_corpus = 0
+            count_total = 0
+            for med in new_medications_unique:
+                if med.lower().startswith(letter):
+                    file_2.write(f"{med.lower()}\n")
+                    count_corpus += 1
+                    total2 += 1
+
+            for med in enrichier_medicaments:
+                if med.lower().startswith(letter):
+                    file_3.write(f"{med.lower()}\n")
+                    count_total += 1
+                    total3 += 1
+
+            file_2.write("------------------------------------\n\n\n")
+            file_2.write(f"{letter}: {count_corpus}")
+            file_2.write("\n\n\n------------------------------------\n")
+            file_3.write("------------------------------------\n\n\n")
+            file_3.write(f"{letter}: {count_total}\n")
+            file_3.write("\n\n\n------------------------------------\n")
+
+        file_2.write(f"\nTotal: {total2}\n")
+        file_3.write(f"\nTotal: {total3}\n")
+
+
+def getFR_Alphabet():
+    # defenir les characters de la langue francaise:---------------------------
+    alph_file = open("Alphabet.txt", "r", encoding="utf-16-le")
+    alph = ""
+    for line in alph_file:
+        alph = alph + line
+    return alph
+    # -------------------------------------------------------------------------
+
+
+def load_french_words(dictionary_file):
+    french_words = set()
+
+    with open(dictionary_file, "r", encoding="utf-16-le") as f:
+        for line in f:
+            word = line.split(",")[0]
+            french_words.add(word)
+    return french_words
+
+
+def remove_list1_from_list2(list2, list1):
+    return [word for word in list2 if word not in list1]
+
+
+french_words = load_french_words("dlf")
+
+
 def main():
     delete_existing_files()
+    alph = getFR_Alphabet()
 
     if len(sys.argv) != 2:
         print("Usage: python enrichir.py <corpus_medical_file_path>")
@@ -119,76 +245,74 @@ def main():
     subst_dic_path = "subst.dic"
     subst_corpus_path = "subst_corpus.dic"
 
-    # Load existing medications from subst.dic file
     existing_medications = load_existing_medications(subst_dic_path)
 
-    # Open corpus-medical.txt file to extract new medications
+    blocks = extract_blocks()
 
     with open(corpus_medical_file_path, "r", encoding="utf-8") as file:
         content = file.read()
 
-    # Extract potential medication names from the medical corpus
-    Extracted_medications = extract_medication_names(content)
+    new_medications = extract_medication_names_corpus(content)
+    print(len(new_medications))
 
-    # Remove duplicates from     Extracted_medications
-    Extracted_medications_unique = list(set(Extracted_medications))
-    print(Extracted_medications_unique)
-    print(len(Extracted_medications_unique))
+    text = ""
+    for block in blocks:
+        text += block
+
+    new_medications.extend(extract_medication_names_blocks(text))
+    new_medications.sort()
+
+    # Remove duplicates from new_medications
+    new_medications_unique = list(dict.fromkeys(new_medications))
+    # print(new_medications_unique)
+    print(len(new_medications_unique))
+
     # -MEDICAMENT ENRICHI : ----------------------------------------------------
     enrichier_medicaments = [
-        enrichier_med.strip().lower()
-        for enrichier_med in Extracted_medications
-        if enrichier_med.strip().lower() not in existing_medications
+        enrichier_med
+        for enrichier_med in new_medications_unique
+        if enrichier_med not in existing_medications
     ]
-
+    enrichier_medicaments = list(dict.fromkeys(enrichier_medicaments))
     enrichier_medicaments.sort()
-    enrichier_medicaments_unique = list(set(enrichier_medicaments))
-    # -----------------------------------------------------------------------------
-    # Append new medications to subst.dic
-    with open(subst_dic_path, "a", encoding="utf-16le") as subst_dic_file:
-        for medication in Extracted_medications_unique:
-            if medication not in existing_medications:
-                subst_dic_file.write(f"{medication.lower()},.N+subst\n")
 
-    # Sort subst.dic
-    sort_file_by_line("subst.dic", "utf-16le")
+    # -----------------------------------------------------------------------------
+    with open(subst_dic_path, "r", encoding="utf-16le") as file:
+        content = file.read()
+
+    letters = re.findall(r"^\s*(\b[a-z]{1})", content, re.MULTILINE)
+    letters = list(dict.fromkeys(letters))
+    letters.sort()
+
+    # -----------------------------------------------------------------------------
+
+    with open(subst_dic_path, "a", encoding="utf-16le") as subst_dic_file:
+        for medication in new_medications_unique:
+            for letter in letters:
+                if medication.lower().startswith(letter):
+                    subst_dic_file.write(f"{medication.lower()},.N+subst\n")
+
+    sort_file_by_line(subst_dic_path, "utf-16le")
 
     # Write new medications (with duplicates) to subst_corpus.dic
     with open(subst_corpus_path, "w", encoding="utf-16le") as subst_corpus_file:
-        # Write BOM (Byte Order Mark) for UTF-16 LE
         subst_corpus_file.write("\ufeff")
 
-        for medication in Extracted_medications:
-            subst_corpus_file.write(f"{medication.lower()},.N+subst\n")
+        for medication in new_medications:
+            for letter in letters:
+                if medication.lower().startswith(letter):
+                    subst_corpus_file.write(f"{medication.lower()},.N+subst\n")
 
     stats_file_2 = "infos2.txt"
     stats_file_3 = "infos3.txt"
 
-    with open(stats_file_2, "w", encoding="utf-8") as file_2, open(
-        stats_file_3, "w", encoding="utf-8"
-    ) as file_3:
-        for letter in "abcdefghijklmnopqrstuvwxyz":
-            count_corpus = 0
-            count_total = 0
-            for med in Extracted_medications_unique:
-                if med.lower().startswith(letter):
-                    file_2.write(f"{med.lower()}\n")
-                    count_corpus += 1
-
-            for med in enrichier_medicaments_unique:
-                if med.lower().startswith(letter):
-                    file_3.write(f"{med.lower()}\n")
-                    count_total += 1
-
-            file_2.write("------------------------------------\n\n\n")
-            file_2.write(f"{letter}: {count_corpus}")
-            file_2.write("\n\n\n------------------------------------\n")
-            file_3.write("------------------------------------\n\n\n")
-            file_3.write(f"{letter}: {count_total}\n")
-            file_3.write("\n\n\n------------------------------------\n")
-
-        file_2.write(f"\nTotal: {len(Extracted_medications_unique)}\n")
-        file_3.write(f"\nTotal: {len(enrichier_medicaments_unique)}\n")
+    fill_info_files(
+        stats_file_2,
+        stats_file_3,
+        letters,
+        new_medications_unique,
+        enrichier_medicaments,
+    )
 
     print("Enrichment process completed.")
 
