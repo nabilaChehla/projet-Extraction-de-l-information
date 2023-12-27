@@ -5,7 +5,7 @@ if os.path.exists("corpus-medical_snt"):
     os.system("rd /S corpus-medical_snt")
 
 os.mkdir("corpus-medical_snt")
-# Normalise le texte et crée un fichier de normalisation "Norm.txt"
+# Normalise le texte en utilisant Norm.txt
 os.system("UnitexToolLogger Normalize corpus-medical.txt -r Norm.txt")
 # Tokenise le texte normalisé en utilisant le fichier d'alphabet spécifié "Alphabet.txt"
 os.system("UnitexToolLogger Tokenize corpus-medical.snt -a Alphabet.txt")
@@ -23,11 +23,11 @@ os.system(
 os.system(
     'UnitexToolLogger Concord corpus-medical_snt/concord.ind -f "Courier new" -s 12'
 )
-""" Lors du Tokenisation (pretraitement), on liste les tokens par ordre alphabetique
-donc si on a un 'é' par exemple on doit le considerer equivalent a un 'e' juste pour pouvoir 
-le classé dans la liste ordonné dess tokens, cette information se trouve au nivreau de alphabet.txt"""
 
-
-# pour spécifier comment les caractères sont traités et analysés. Il définit l'ensemble de caractères
-# ou l'alphabet utilisé dans les tâches de traitement linguistique, assurant ainsi la cohérence et
-# la précision de l'analyse du corpus médical.
+# -----------------------------------------------------------------------------------------
+# Utilité de alphabet.txt:
+# ----------------------------------------------------------------------------------------
+"""
+- on utilise alphabet.txt pour ordonner les tokens par ordre alphabetique 
+et avoir le nombre d'occurances pour chaque ensemble de lettres équivalentes 
+"""

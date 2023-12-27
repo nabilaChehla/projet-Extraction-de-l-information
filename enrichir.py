@@ -2,7 +2,7 @@ import sys
 import os
 import re
 
-
+# Fonction qui vérifie si une ligne marque le début d'un bloc d'informations médicales.
 def block_start(line):
     line = line.strip().lower()
     starters = {
@@ -25,7 +25,7 @@ def block_start(line):
 
     return False
 
-
+# Fonction qui extrait les blocs d'informations médicales d'un fichier.
 def extract_blocks():
     with open("corpus-medical.txt", "r", encoding="utf-8") as file:
         content = file.readlines()
@@ -45,7 +45,7 @@ def extract_blocks():
                 or "Aucun" in line
                 or "aucun" in line
                 or "Histoire de la maladie" in line
-                or "Examen clinique à l’entrée :" in line
+                or "Examen clinique à l’entrée :" in line
                 or "Mode de vie" in line
                 or "Bilan paraclinique" in line
                 or "Examen clinique" in line
@@ -71,13 +71,13 @@ def extract_blocks():
 
     return blocks
 
-
+# Fonction qui supprime certains fichiers s'ils existent déjà.
 def delete_existing_files():
     for file_name in ["info2", "info3", "subst_corpus.dic"]:
         if os.path.exists(file_name):
             os.remove(file_name)
 
-
+# Fonction qui charge les médicaments existants à partir d'un fichier.
 def load_existing_medications(file_path):
     existing_medications = set()
 
@@ -89,7 +89,7 @@ def load_existing_medications(file_path):
 
     return existing_medications
 
-
+# Fonction qui extrait les noms de médicaments du corpus médical en utilisant des expressions régulières.
 def extract_medication_names_corpus(text):
     medication_names = []
 
@@ -105,21 +105,23 @@ def extract_medication_names_corpus(text):
     medication_names = list(filter(None, medication_names))
 
     # exlude some results :
-    # exlude some results :
-
     medication_names = [med.lower() for med in medication_names]
 
+    element_non_medicament = {
+        "anti","drogues","injection","posologie",
+    }
+
     medication_names = [
-        med for med in medication_names if (med not in french_words and len(med) > 3)
+        med for med in medication_names if (med not in french_words and med not in element_non_medicament)
     ]
 
     return list(set(medication_names))
 
-
+# Fonction qui extrait les noms de médicaments des blocs d'informations médicales en utilisant des expressions régulières.
 def extract_medication_names_blocks(text):
     medication_names = []
 
-    pattern = r"\b([A-Za-z{alph}]{5,})(?=\s*(jusqu’à|en seringue))|([A-Z]{5,})(?=(,|\.|\n))|([A-Za-z{alph}]{5,})(\s?LP)?\s*(\d+(,\d+)?)(?!.*\s*(ui\/h|cc)\b)(?:mg|g|ml)?|([A-Za-z{alph}]{5,})(\s?LP)?\s*(\d+(\s\d+)?)(?=.*\/j)|([A-Za-z{alph}]{4,})(?: ?\s*:\s*\d*\s*(fois|cp|midi|\/j))"
+    pattern = r"\b([A-Za-z{alph}]{5,})(?=\s*(jusqu’à|en seringue))|([A-Z]{5,})(?=(,|\.|\n))|([A-Za-z{alph}]{5,})(\s?LP)?\s*(\d+(,\d+)?)(?!.*\s*(ui\/h|cc)\b)(?:mg|g|ml)?|([A-Za-z{alph}]{5,})(\s?LP)?\s*(\d+(\s\d+)?)(?=.*\/j)|([A-Za-z{alph}]{4,})(?: ?\s*:\s*\d*\s*(fois|cp|midi|\/j))"
 
     matches = re.finditer(pattern, text, re.DOTALL | re.MULTILINE)
 
@@ -134,16 +136,17 @@ def extract_medication_names_blocks(text):
     medication_names = list(filter(None, medication_names))
 
     # exlude some results :
-
     medication_names = [med.lower() for med in medication_names]
-
+    element_non_medicament = {
+        "orale","doses","juillet","sandrine","dossiermed","valider","perfusion","derivations","posologie","ampoule","biologie","constantes","mardi","injection","oxygène","neurologie","vanille"
+    }
     medication_names = [
-        med for med in medication_names if (med not in french_words and len(med) > 3)
+        med for med in medication_names if (med not in french_words and med not in element_non_medicament)
     ]
 
     return list(set(medication_names))
 
-
+# Fonction qui trie les lignes d'un fichier par ordre alphabétique.
 def sort_file_by_line(filename, encoding="utf-8"):
     try:
         with open(filename, "r", encoding=encoding) as file:
@@ -163,17 +166,14 @@ def sort_file_by_line(filename, encoding="utf-8"):
             file.write(bom)
             file.write("\n".join(sorted_lines))
 
-        print(f"File '{filename}' has been sorted alphabetically.")
 
     except FileNotFoundError:
         print(f"Error: File '{filename}' not found.")
     except Exception as e:
         print(f"An error occurred: {e}")
 
-
-def fill_info_files(
-    stats_file_2, stats_file_3, letters, new_medications_unique, enrichier_medicaments
-):
+# Fonction qui remplit deux fichiers avec des statistiques sur les nouveaux médicaments.
+def fill_info_files(stats_file_2, stats_file_3, letters, new_medications_unique, enrichier_medicaments):
     total2 = 0
     total3 = 0
 
@@ -205,17 +205,15 @@ def fill_info_files(
         file_2.write(f"\nTotal: {total2}\n")
         file_3.write(f"\nTotal: {total3}\n")
 
-
+# Fonction qui retourne l'alphabet français.
 def getFR_Alphabet():
-    # defenir les characters de la langue francaise:---------------------------
     alph_file = open("Alphabet.txt", "r", encoding="utf-16-le")
     alph = ""
     for line in alph_file:
         alph = alph + line
     return alph
-    # -------------------------------------------------------------------------
 
-
+# Fonction qui charge un ensemble de mots français à partir d'un fichier.
 def load_french_words(dictionary_file):
     french_words = set()
 
@@ -225,14 +223,14 @@ def load_french_words(dictionary_file):
             french_words.add(word)
     return french_words
 
-
+# Fonction qui supprime les éléments d'une liste d'une autre liste.
 def remove_list1_from_list2(list2, list1):
     return [word for word in list2 if word not in list1]
 
-
+# Chargement des mots français à partir du fichier "dlf".
 french_words = load_french_words("dlf")
 
-
+# Fonction principale du script.
 def main():
     delete_existing_files()
     alph = getFR_Alphabet()
@@ -253,7 +251,6 @@ def main():
         content = file.read()
 
     new_medications = extract_medication_names_corpus(content)
-    print(len(new_medications))
 
     text = ""
     for block in blocks:
@@ -264,8 +261,6 @@ def main():
 
     # Remove duplicates from new_medications
     new_medications_unique = list(dict.fromkeys(new_medications))
-    # print(new_medications_unique)
-    print(len(new_medications_unique))
 
     # -MEDICAMENT ENRICHI : ----------------------------------------------------
     enrichier_medicaments = [
@@ -314,8 +309,8 @@ def main():
         enrichier_medicaments,
     )
 
-    print("Enrichment process completed.")
+    print("Enrichment terminee.")
 
-
+# Exécution de la fonction principale si le script est lancé directement.
 if __name__ == "__main__":
     main()

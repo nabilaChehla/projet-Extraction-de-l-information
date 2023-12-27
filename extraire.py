@@ -5,106 +5,107 @@ import os
 from unidecode import unidecode
 
 
-def extract_medication_names(html_content):
-    # Define regular expressions for extracting medication names
-    medication_pattern = re.compile(r"<a href=\"Substance/[^>]+\">([^<]+)</a>")
+def extraire_noms_medicaments(contenu_html):
+    # Définir les expressions régulières pour extraire les noms des médicaments
+    motif_medicament = re.compile(r"<a href=\"Substance/[^>]+\">([^<]+)</a>")
 
-    # Find all matches for medication names
-    medications = medication_pattern.findall(html_content)
+    # Trouver toutes les correspondances pour les noms des médicaments
+    medicaments = motif_medicament.findall(contenu_html)
 
-    return medications
+    return medicaments
 
 
-def main():
-    # Delete existing files if they exist
-    delete_files = ["subst.dic", "infos1.txt"]
+def principal():
+    # Supprimer les fichiers existants s'ils existent
+    fichiers_a_supprimer = ["subst.dic", "infos1.txt"]
 
-    for file_name in delete_files:
-        if os.path.exists(file_name):
-            os.remove(file_name)
+    for nom_fichier in fichiers_a_supprimer:
+        if os.path.exists(nom_fichier):
+            os.remove(nom_fichier)
 
     if len(sys.argv) != 3:
-        print("Usage: python extraire.py <page_range> <http_port>")
-        print("Example: python extraire.py B-H 8080")
+        print("Utilisation : python extraire.py <plage_pages> <port_http>")
+        print("Exemple : python extraire.py B-H 8080")
         sys.exit(1)
 
-    page_range = sys.argv[1]
-    http_port = sys.argv[2]
+    plage_pages = sys.argv[1]
+    port_http = sys.argv[2]
 
-    # Validate and extract the start and end letters from the page range
-    if len(page_range) != 3 or page_range[1] != "-":
+    # Valider et extraire la lettre de début et de fin de la plage des pages
+    if len(plage_pages) != 3 or plage_pages[1] != "-":
         print(
-            "Invalid page range format. Please use the format B-H, E-S, A-W, or A-Z, etc."
+            "Format de plage de pages invalide. Veuillez utiliser le format B-H, E-S, A-W, ou A-Z, etc."
         )
         sys.exit(1)
 
-    start_letter = page_range[0].upper()
-    end_letter = page_range[2].upper()
+    lettre_debut = plage_pages[0].upper()
+    lettre_fin = plage_pages[2].upper()
 
-    # Generate a list of URLs based on the specified page range and XAMPP setup
+    # Générer une liste d'URLs basée sur la plage de pages spécifiée et la configuration XAMPP
     base_url = (
-        f"http://127.0.0.1:{http_port}/vidal/vidal-Sommaires-Substances-{{letter}}.html"
+        f"http://127.0.0.1:{port_http}/vidal/vidal-Sommaires-Substances-{{lettre}}.html"
     )
     urls = [
-        base_url.format(letter=chr(letter))
-        for letter in range(ord(start_letter), ord(end_letter) + 1)
+        base_url.format(lettre=chr(lettre))
+        for lettre in range(ord(lettre_debut), ord(lettre_fin) + 1)
     ]
 
-    # Create an empty list to store all medications
-    all_medications = []
+    # Créer une liste vide pour stocker tous les médicaments
+    tous_les_medicaments = []
 
-    # Process each URL in the specified range
+    # Traiter chaque URL dans la plage spécifiée
     for url in urls:
-        # Use requests to fetch HTML content from the URL
-        response = requests.get(url)
+        # Utiliser requests pour récupérer le contenu HTML de l'URL
+        reponse = requests.get(url)
 
-        # Check if the request was successful (status code 200)
-        if response.status_code == 200:
-            response.encoding = "utf-8"
-            html_content = response.text
+        # Vérifier si la requête a réussi (code d'état 200)
+        if reponse.status_code == 200:
+            reponse.encoding = "utf-8"
+            contenu_html = reponse.text
 
-            # Extract medication names from the HTML content
-            medications = extract_medication_names(html_content)
+            # Extraire les noms des médicaments du contenu HTML
+            medicaments = extraire_noms_medicaments(contenu_html)
 
-            # Add the medications to the list
-            all_medications.extend(medications)
+            # Ajouter les médicaments à la liste
+            tous_les_medicaments.extend(medicaments)
         else:
-            print(f"Failed to access URL: {url}")
+            print(f"Échec d'accès à l'URL : {url}")
 
-    # Write the medications to a .dic file with UTF-16 LE encoding and BOM
-    output_file_path = "subst.dic"
-    with open(output_file_path, "w", encoding="utf-16le") as output_file:
-        # Write BOM (Byte Order Mark) for UTF-16 LE
-        output_file.write("\ufeff")
-        # Update the medication dictionary
-        for medication in all_medications:
-            # Ensure correct encoding and handle non-ASCII characters
-            output_file.write(f"{medication},.N+subst\n")
+    # Écrire les médicaments dans un fichier .dic avec un encodage UTF-16 LE et un BOM
+    chemin_fichier_sortie = "subst.dic"
+    with open(chemin_fichier_sortie, "w", encoding="utf-16le") as fichier_sortie:
+        # Écrire le BOM (Byte Order Mark) pour UTF-16 LE
+        fichier_sortie.write("\ufeff")
+        # Mettre à jour le dictionnaire des médicaments
+        for medicament in tous_les_medicaments:
+            # Assurer une encodage correcte et gérer les caractères non-ASCII
+            fichier_sortie.write(f"{medicament},.N+subst\n")
 
-    print(f"{output_file_path} is written")
+    print(f"{chemin_fichier_sortie} est rempli")
 
-    # Generate statistics and write to infos1.txt
-    alphabet_counts = {chr(letter): 0 for letter in range(ord("A"), ord("Z") + 1)}
-    total_count = 0
+    # Générer des statistiques et écrire dans infos1.txt
+    compte_alphabet = {chr(lettre): 0 for lettre in range(ord("A"), ord("Z") + 1)}
+    total_compte = 0
 
-    for medication in all_medications:
-        first_letter = medication[0].upper()
-        normalized_letter = unidecode(first_letter)
-        # So we can treat the case of caracters like é
-        if normalized_letter in alphabet_counts:
-            alphabet_counts[normalized_letter] += 1
-            total_count += 1
-    # Write statistics to infos1.txt
-    stats_file_path = "infos1.txt"
-    with open(stats_file_path, "w", encoding="utf-8") as stats_file:
-        for letter, count in alphabet_counts.items():
-            stats_file.write(f"{letter}: {count}\n")
+    for medicament in tous_les_medicaments:
+        premiere_lettre = medicament[0].upper()
+        lettre_normalisee = unidecode(premiere_lettre)
+        # Afin de traiter les cas de caractères comme é
+        if lettre_normalisee in compte_alphabet:
+            compte_alphabet[lettre_normalisee] += 1
+            total_compte += 1
+    # Écrire les statistiques dans infos1.txt
+    chemin_fichier_stats = "infos1.txt"
+    with open(chemin_fichier_stats, "w", encoding="utf-8") as fichier_stats:
+        for lettre, compte in compte_alphabet.items():
+            fichier_stats.write(f"{lettre}: {compte}\n")
 
-        stats_file.write(f"Total: {total_count}\n")
+        fichier_stats.write(f"Total : {total_compte}\n")
 
-    print(f"Statistics have been written to {stats_file_path}")
-    print(f"HTTP port: {http_port}")
+    print(f"Statistiques remplies dans : {chemin_fichier_stats}")
+    print(f"Port HTTP : {port_http}")
 
 
+# Exécuter la fonction principale si le script est lancé directement
 if __name__ == "__main__":
-    main()
+    principal()

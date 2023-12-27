@@ -10,10 +10,10 @@ file = codecs.open(r"corpus-medical_snt\concord.html", "r", "utf-8")
 content = file.read()
 file.close()
 
-# Use a set to store unique values
+# utiliser set pour avoir des valeurs uniques :
 unique_posologies = set()
 
-# Use a compiled regex pattern for better performance
+# extraire le contenues des balise <a></a>
 pattern = re.compile(r"<a[^>]*>(.*?)<\/a>")
 
 matches = pattern.findall(content)
@@ -24,7 +24,7 @@ cur.execute(
     "CREATE TABLE IF NOT EXISTS EXTRACTION (ID INTEGER PRIMARY KEY, Posologie TEXT)"
 )
 
-# Sort the unique values alphabetically
+#  Ordonner les valeurs par alphabet pour insérer :
 sorted_posologies = sorted(set(matches), key=lambda x: x.lower())
 
 for i, posologie in enumerate(sorted_posologies, start=1):
