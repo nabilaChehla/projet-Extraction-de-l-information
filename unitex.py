@@ -28,6 +28,18 @@ os.system(
 # Utilité de alphabet.txt:
 # ----------------------------------------------------------------------------------------
 """
-- on utilise alphabet.txt pour ordonner les tokens par ordre alphabetique 
+- on utilise alphabet.txt pour normaliser puis tokeniser le texte selon l'ensemble de lettres  dans le fichier alphabet.txt
+par example : 
+'INEXIUM 20 mg : 1 le soir'
+va etre tokenisé en :
+'INEXIUM'
+'mg'
+'le'
+'soir'
+
+- on utilise alphabet.txt pour appliquer le transducteur FST2 au texte tokenisé et pour avoir les concordances
+
+- on utilise alphabet.txt aussi pour ordonner les tokens par ordre alphabetique 
 et avoir le nombre d'occurances pour chaque ensemble de lettres équivalentes 
+par example: 'à' et 'a' sont des lettres équivalentes
 """
